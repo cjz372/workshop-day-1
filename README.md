@@ -1,6 +1,6 @@
 # Snip frontend
 
-Angular 19 web client for the Snip link shortener. The app expects the API at
+Angular 22 web client for the Snip link shortener. The app expects the API at
 `http://localhost:3000` and uses `POST /api/links` and `GET /api/links`.
 
 ## Run locally

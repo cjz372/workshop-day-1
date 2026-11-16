@@ -1,5 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  inject,
+  signal,
+} from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -28,6 +34,7 @@ const httpUrlValidator: ValidatorFn = (control): ValidationErrors | null => {
   selector: 'app-root',
   imports: [ReactiveFormsModule],
   templateUrl: './app.component.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './app.component.css',
 })
 export class AppComponent implements OnInit {

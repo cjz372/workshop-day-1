@@ -1,5 +1,5 @@
+import { provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { LinkRecord, LinksService } from './links.service';
 
@@ -17,7 +17,7 @@ describe('LinksService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(withXhr()), provideHttpClientTesting()],
     });
     service = TestBed.inject(LinksService);
     http = TestBed.inject(HttpTestingController);
