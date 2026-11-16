@@ -1,0 +1,87 @@
+name: Build and push image
+
+on:
+  push:
+    branches: [main]
+    paths: [bundle, .github/workflows/docker.yml]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Superproject commit containing the release gitlink
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Test source clients
+        run: |
+          npm ci --prefix frontend
+          npm test --prefix frontend -- --watch=false --browsers=ChromeHeadless
+          npm test --prefix cli
+          npm run build --prefix frontend
+          cmp backend/server.js bundle/server.js
+          cmp cli/cli.js bundle/cli.js
+          diff -r frontend/dist/snip-frontend/browser bundle/public
+      - name: Record release revision
+        id: revision
+        run: echo "sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        id: metadata
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ steps.revision.outputs.sha }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build candidate image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ./bundle
+          load: true
+          tags: snip:ci
+          labels: ${{ steps.metadata.outputs.labels }}
+      - name: Smoke test candidate image
+        run: |
+          cid=$(docker run -d --rm -p 127.0.0.1:31847:3000 -e BASE_URL=http://127.0.0.1:31847 snip:ci)
+          trap 'docker stop "$cid" >/dev/null' EXIT
+          for i in {1..30}; do curl -fsS http://127.0.0.1:31847/api/links >/dev/null && break; sleep 1; done
+          node scripts/smoke.mjs http://127.0.0.1:31847
+      - name: Scan image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: snip:ci
+          format: table
+          exit-code: '1'
+          severity: HIGH,CRITICAL
+      - name: Audit dependencies
+        run: npm audit --prefix frontend --audit-level=high
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the tested image
+        env:
+          TAGS: ${{ steps.metadata.outputs.tags }}
+        run: |
+          while IFS= read -r tag; do
+            docker tag snip:ci "$tag"
+            docker push "$tag"
+          done <<< "$TAGS"

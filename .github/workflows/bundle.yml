@@ -1,0 +1,78 @@
+name: Build bundle
+
+on:
+  # This workflow exists only on main, so pushes to source branches cannot run it.
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: snip-bundle
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      changed: ${{ steps.push.outputs.changed }}
+      commit: ${{ steps.push.outputs.commit }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1'
+      - name: Assemble candidate
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          echo "BEFORE=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          node scripts/build-bundle.mjs
+      - name: Test clients and dependencies
+        run: |
+          npm test --prefix cli
+          npm test --prefix frontend -- --watch=false --browsers=ChromeHeadless
+          npm audit --prefix frontend --audit-level=high
+      - name: Smoke test candidate
+        run: |
+          (cd bundle && exec env PORT=31847 BASE_URL=http://127.0.0.1:31847 bun server.js) &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in {1..30}; do curl -fsS http://127.0.0.1:31847/api/links >/dev/null && break; sleep 1; done
+          node scripts/smoke.mjs http://127.0.0.1:31847
+      - name: Push verified candidate
+        id: push
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          after=$(git rev-parse HEAD)
+          if [ "$BEFORE" != "$after" ]; then
+            gh auth setup-git
+            git -C bundle push origin HEAD:refs/heads/bundle
+            git push origin HEAD:refs/heads/main
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          fi
+          echo "commit=$after" >> "$GITHUB_OUTPUT"
+
+  image:
+    needs: build
+    if: needs.build.outputs.changed == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker.yml
+    with:
+      ref: ${{ needs.build.outputs.commit }}

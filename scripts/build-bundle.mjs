@@ -55,7 +55,8 @@ for (const name of ['backend', 'frontend', 'cli', 'bundle']) {
   }
 }
 run('git', ['submodule', 'update', '--init', '--remote', 'backend', 'frontend', 'cli']);
-run('npm', ['ci'], frontend);
+run('npm', ['install'], frontend);
+run('git', ['diff', '--exit-code', '--', 'package.json', 'package-lock.json'], frontend);
 run('npm', ['run', 'build'], frontend);
 const builtFrontend = join(frontend, 'dist', 'snip-frontend', 'browser');
 if (!existsSync(join(builtFrontend, 'index.html'))) {
@@ -74,7 +75,7 @@ writeFileSync(join(bundle, 'package.json'), JSON.stringify({
   scripts: { start: 'bun server.js' },
 }, null, 2) + '\n');
 writeFileSync(join(bundle, 'Dockerfile'), [
-  'FROM oven/bun:1-alpine',
+  'FROM oven/bun:1-alpine@sha256:4cf82f5686b196504fe119db3fcd9185b191f82ece82c40680e597228ec6070a',
   'WORKDIR /app',
   'COPY . .',
   'ENV PORT=3000',

@@ -41,3 +41,10 @@ Run the assembled app with `cd bundle && bun start`, or build and run it with
 `docker build -t snip bundle` and `docker run --rm -p 3000:3000 snip`.
 Set `PORT` and `BASE_URL` for your deployment; `RAILWAY_PUBLIC_DOMAIN` is used
 when `BASE_URL` is absent. Railway should build the `bundle` branch.
+
+The hourly/manual bundle workflow tests candidates before pushing. Its
+successful pointer update calls the image workflow directly because pushes made
+with `GITHUB_TOKEN` do not start another push workflow. The image workflow also
+runs on manual dispatch and relevant `main` pushes. It tests and scans the
+candidate and audits dependencies before publishing to GHCR; high or critical
+findings block publication.
