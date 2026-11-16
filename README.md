@@ -30,3 +30,14 @@ git add backend
 git commit -m "Update backend submodule"
 git push
 ```
+
+`bundle` is generated output, not source. From a clean `main` checkout run
+`node scripts/build-bundle.mjs` to build it and commit changed pointers locally;
+add `--push` to push the bundle branch and `main`. The script updates source
+submodules to their branch tips, installs the locked frontend dependencies, and
+builds the production UI. Re-running it without changes is a no-op.
+
+Run the assembled app with `cd bundle && bun start`, or build and run it with
+`docker build -t snip bundle` and `docker run --rm -p 3000:3000 snip`.
+Set `PORT` and `BASE_URL` for your deployment; `RAILWAY_PUBLIC_DOMAIN` is used
+when `BASE_URL` is absent. Railway should build the `bundle` branch.
