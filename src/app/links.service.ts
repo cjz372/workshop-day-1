@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { apiEndpoint } from './api-endpoint';
 
 export interface LinkRecord {
   code: string;
@@ -13,7 +14,7 @@ export interface LinkRecord {
 @Injectable({ providedIn: 'root' })
 export class LinksService {
   private readonly http = inject(HttpClient);
-  private readonly endpoint = 'http://localhost:3000/api/links';
+  private readonly endpoint = apiEndpoint;
 
   getLinks(): Observable<LinkRecord[]> {
     return this.http.get<LinkRecord[]>(this.endpoint);

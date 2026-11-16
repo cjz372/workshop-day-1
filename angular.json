@@ -33,6 +33,12 @@
           },
           "configurations": {
             "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/app/api-endpoint.ts",
+                  "with": "src/app/api-endpoint.production.ts"
+                }
+              ],
               "budgets": [
                 {
                   "type": "initial",
